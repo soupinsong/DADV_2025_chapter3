@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>범죄국 출국자 비율 분석</title>
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: #fafafa;
+            padding: 30px;
+            color: #222;
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            margin-top: 40px;
+            font-size: 24px;
+        }
+        #charts {
+            display: flex;
+            flex-direction: column;
+            gap: 70px;
+        }
+        .chart-box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>📊 범죄국 출국자 비율(%) 기반 범죄 발생 분석</h1>
+    <p>· Django API에서 실시간으로 데이터를 불러와 시각화합니다.</p>
+
+    <div id="charts">
+        <div class="chart-box">
+            <h2>① 범죄국 출국 비율 vs 사이버사기 발생건수</h2>
+            <div id="chart_scam" style="width:100%;height:550px;"></div>
+        </div>
+
+        <div class="chart-box">
+            <h2>② 범죄국 출국 비율 vs 보이스피싱 발생건수</h2>
+            <div id="chart_voice" style="width:100%;height:550px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 선형 회귀 계산 함수
+        function linearRegression(x, y) {
+            const n = x.length;
+            const sumX = x.reduce((a,b)=>a+b, 0);
+            const sumY = y.reduce((a,b)=>a+b, 0);
+            const sumXY = x.map((xi,i) => xi * y[i]).reduce((a,b)=>a+b, 0);
+            const sumX2 = x.map(v => v*v).reduce((a,b)=>a+b, 0);
+
+            // slope = 기울기, intercept = 절편
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX ** 2);
+            const intercept = (sumY - slope * sumX) / n;
+
+            return { slope, intercept };
+        }
+
+        // Django API 호출
+        fetch("/analysis/data/")
+            .then(res => res.json())
+            .then(data => {
+                const years = data.years;
+                const ratio = data.crime_ratio;
+                const cyber = data.cyber_scam_cases;
+                const voice = data.voice_phishing_cases;
+
+                drawCyberChart(years, ratio, cyber);
+                drawVoiceChart(years, ratio, voice);
+            });
+
+        // -------------------------------
+        // ① 사이버사기 그래프
+        // -------------------------------
+        function drawCyberChart(years, ratio, cases) {
+
+            const lr = linearRegression(ratio, cases);
+            const lineX = [Math.min(...ratio), Math.max(...ratio)];
+            const lineY = lineX.map(x => lr.slope * x + lr.intercept);
+
+            Plotly.newPlot("chart_scam", [
+                {
+                    x: ratio,
+                    y: cases,
+                    mode: "markers+text",
+                    type: "scatter",
+                    text: years.map(String),
+                    textposition: "top center",
+                    marker: { size: 12, color: "#ff4d4d" }
+                },
+                {
+                    x: lineX,
+                    y: lineY,
+                    mode: "lines",
+                    line: { color: "black" },
+                    name: `회귀선: y = ${lr.slope.toFixed(3)}x + ${lr.intercept.toFixed(1)}`
+                }
+            ], {
+                title: "범죄국 출국자 비율 vs 사이버사기",
+                xaxis: { title: "출국자 비율 (%)" },
+                yaxis: { title: "사이버사기 발생건수" }
+            });
+        }
+
+        // -------------------------------
+        // ② 보이스피싱 그래프
+        // -------------------------------
+        function drawVoiceChart(years, ratio, cases) {
+
+            const lr = linearRegression(ratio, cases);
+            const lineX = [Math.min(...ratio), Math.max(...ratio)];
+            const lineY = lineX.map(x => lr.slope * x + lr.intercept);
+
+            Plotly.newPlot("chart_voice", [
+                {
+                    x: ratio,
+                    y: cases,
+                    mode: "markers+text",
+                    type: "scatter",
+                    text: years.map(String),
+                    textposition: "top center",
+                    marker: { size: 12, color: "#ff884d" }
+                },
+                {
+                    x: lineX,
+                    y: lineY,
+                    mode: "lines",
+                    line: { color: "black" },
+                    name: `회귀선: y = ${lr.slope.toFixed(3)}x + ${lr.intercept.toFixed(1)}`
+                }
+            ], {
+                title: "범죄국 출국자 비율 vs 보이스피싱",
+                xaxis: { title: "출국자 비율 (%)" },
+                yaxis: { title: "보이스피싱 발생건수" }
+            });
+        }
+    </script>
+
+</body>
+</html>
