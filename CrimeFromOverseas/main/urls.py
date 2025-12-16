@@ -28,4 +28,9 @@ urlpatterns = [
 
     path("analysis/data/", views.get_analysis_data, name="analysis_data"),
 
+    path("analysis/", views.analysis_view, name="analysis"),
+
+    path("analysis/step3/", views.get_step3_radial_data, name="step3_radial"),
+
+
 ]

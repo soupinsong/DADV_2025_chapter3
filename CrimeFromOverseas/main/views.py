@@ -280,7 +280,70 @@ def build_analysis_data():
     }
 
 
+
+
 def get_analysis_data(request):
     """HTML에서 호출하는 /analysis/data/ API"""
     data = build_analysis_data()
     return JsonResponse(data)
+
+from django.shortcuts import render
+
+def analysis_view(request):
+    """
+    분석 시각화 메인 페이지 (HTML)
+    """
+    return render(request, "main/analysis_data.html")
+
+# views.py (하단에 추가)
+
+from django.http import JsonResponse
+from .models import CyberScamStat
+
+def get_step3_radial_data(request):
+    """
+    STEP 3 전용
+    범죄 유형을 시계축으로 쓰기 위한 연도별 데이터
+    """
+
+    years = list(range(2018, 2026))
+
+    categories = [
+        "shopping_mall",
+        "email_trade",
+        "romance",          # 연예빙자
+        "investment",
+        "etc",              # 사이버사기_기타
+        "voice_phishing",
+        "total",            # 전체 합계 (새 축)
+    ]
+
+    result = []
+
+    for year in years:
+        qs = CyberScamStat.objects.filter(year=year)
+
+        if not qs.exists():
+            continue
+
+        row = qs.first()
+
+        data = {
+            "year": year,
+            "shopping_mall": row.shopping_mall,
+            "email_trade": row.email_trade,
+            "romance": row.romance,
+            "investment": row.investment,
+            "etc": row.etc,
+            "voice_phishing": row.voice_phishing,
+        }
+
+        data["total"] = sum(data.values())
+
+        result.append(data)
+
+    return JsonResponse({
+        "years": years,
+        "categories": categories,
+        "data": result
+    })
