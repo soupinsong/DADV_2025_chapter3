@@ -1,5 +1,7 @@
-// static/main/line.js
-// ✅ d3 / scrollama 는 HTML에서 전역으로 이미 로드됨
+let DATA = null;
+let currentStep = 0;
+let scaleFactor = 1.0;
+let currentYear = 2025;
 
 const width = 900;
 const height = 520;
@@ -7,6 +9,15 @@ const margin = { top: 40, right: 30, bottom: 60, left: 70 };
 
 const innerW = width - margin.left - margin.right;
 const innerH = height - margin.top - margin.bottom;
+
+const categories = [
+  "shopping",
+  "email_trade",
+  "celebrity",
+  "cyber_invest",
+  "cyber_etc",
+  "voice_phishing"
+];
 
 const root = d3.select("#graphic");
 root.selectAll("*").remove();
@@ -19,12 +30,19 @@ const svg = root.append("svg")
 const g = svg.append("g")
   .attr("transform", `translate(${margin.left},${margin.top})`);
 
+const plot = g.append("g");
+
 const title = svg.append("text")
   .attr("x", margin.left)
   .attr("y", 24)
   .attr("font-size", 16)
-  .attr("font-weight", 700)
-  .text("");
+  .attr("font-weight", 700);
+
+const subtitle = svg.append("text")
+  .attr("x", margin.left)
+  .attr("y", 42)
+  .attr("font-size", 12)
+  .attr("fill", "#666");
 
 const gx = g.append("g").attr("transform", `translate(0,${innerH})`);
 const gy = g.append("g");
@@ -44,45 +62,55 @@ const yLabel = svg.append("text")
   .attr("font-size", 12)
   .attr("fill", "#444");
 
-const plot = g.append("g");
-
+/* ==============================
+   슬라이더
+============================== */
 const slider = document.getElementById("scaleSlider");
 const scaleLabel = document.getElementById("scaleLabel");
-
-let DATA = null;
-let currentStep = 0;
-let scaleFactor = 1.0;
 
 slider.addEventListener("input", () => {
   scaleFactor = +slider.value;
   scaleLabel.textContent = `${scaleFactor.toFixed(2)}x`;
-  render(currentStep); // ✅ 현재 step 유지한 채로 업데이트
+  if (currentStep === 2) drawStep3Radial();
 });
 
-// --------------------
-// Utils
-// --------------------
-function linreg(x, y) {
-  const n = x.length;
-  const meanX = d3.mean(x);
-  const meanY = d3.mean(y);
-  const num = d3.sum(x.map((xi, i) => (xi - meanX) * (y[i] - meanY)));
-  const den = d3.sum(x.map(xi => (xi - meanX) ** 2));
-  const slope = den === 0 ? 0 : num / den;
-  const intercept = meanY - slope * meanX;
-  return { slope, intercept };
-}
+const yearSlider = document.getElementById("yearSlider");
+const yearLabel = document.getElementById("yearLabel");
+
+yearSlider.addEventListener("input", () => {
+  currentYear = +yearSlider.value;
+  yearLabel.textContent = currentYear;
+  if (currentStep === 2) drawStep3Radial();
+});
 
 function clearPlot() {
   plot.selectAll("*").remove();
 }
 
-// --------------------
-// STEP 0: absolute trend lines
-// --------------------
+function linreg(x, y) {
+  const mx = d3.mean(x);
+  const my = d3.mean(y);
+  const num = d3.sum(x.map((d, i) => (d - mx) * (y[i] - my)));
+  const den = d3.sum(x.map(d => (d - mx) ** 2));
+  const slope = den === 0 ? 0 : num / den;
+  return { slope, intercept: my - slope * mx };
+}
+
+/* ==============================
+   STEP 1 – 절대량
+============================== */
 function drawAbsolute(data) {
+
+  svg.selectAll(".step1-legend").remove();
+
+  gx.style("display", null);
+  gy.style("display", null);
+
   clearPlot();
-  title.text("STEP 1. 절대량(연도별) 변화");
+  svg.selectAll(".step2-legend").remove();
+
+  title.text("연도별 절대량 비교");
+  subtitle.text("연도별 사이버 사기 및 보이스피싱 발생 건수의 절대적 증가룰 ");
   xLabel.text("연도");
   yLabel.text("발생 건수");
 
@@ -90,10 +118,7 @@ function drawAbsolute(data) {
   const cyber = data.cyber_scam_cases;
   const voice = data.voice_phishing_cases;
 
-  const x = d3.scaleLinear()
-    .domain(d3.extent(years))
-    .range([0, innerW]);
-
+  const x = d3.scaleLinear().domain(d3.extent(years)).range([0, innerW]);
   const y = d3.scaleLinear()
     .domain([0, d3.max([...cyber, ...voice]) * 1.05])
     .range([innerH, 0]);
@@ -105,7 +130,6 @@ function drawAbsolute(data) {
     .x((d, i) => x(years[i]))
     .y(d => y(d));
 
-  // cyber line
   plot.append("path")
     .datum(cyber)
     .attr("fill", "none")
@@ -113,7 +137,6 @@ function drawAbsolute(data) {
     .attr("stroke-width", 3)
     .attr("d", line);
 
-  // voice line
   plot.append("path")
     .datum(voice)
     .attr("fill", "none")
@@ -121,211 +144,272 @@ function drawAbsolute(data) {
     .attr("stroke-width", 3)
     .attr("d", line);
 
-  // legend
-  const lg = plot.append("g").attr("transform", `translate(${innerW - 210}, 10)`);
-  lg.append("rect").attr("width", 200).attr("height", 52).attr("rx", 10).attr("fill", "#fff").attr("stroke", "#eee");
-  lg.append("circle").attr("cx", 16).attr("cy", 18).attr("r", 6).attr("fill", "#ff4d4d");
-  lg.append("text").attr("x", 30).attr("y", 22).attr("font-size", 12).text("사이버사기(연도별 총합)");
-  lg.append("circle").attr("cx", 16).attr("cy", 38).attr("r", 6).attr("fill", "#ff884d");
-  lg.append("text").attr("x", 30).attr("y", 42).attr("font-size", 12).text("보이스피싱(연도별 총합)");
+  const legend = svg.append("g")
+    .attr("class", "step1-legend")
+    .attr("transform", `translate(${width - 220}, ${height - 150})`);
+
+  [
+    { label: "사이버 사기", color: "#ff4d4d" },
+    { label: "보이스피싱", color: "#ff884d" }
+  ].forEach((d, i) => {
+    const g = legend.append("g")
+      .attr("transform", `translate(0, ${i * 22})`);
+
+    g.append("line")
+      .attr("x1", 0)
+      .attr("x2", 20)
+      .attr("y1", 8)
+      .attr("y2", 8)
+      .attr("stroke", d.color)
+      .attr("stroke-width", 3);
+
+    g.append("text")
+      .attr("x", 26)
+      .attr("y", 12)
+      .attr("font-size", 12)
+      .attr("fill", "#333")
+      .text(d.label);
+  });
+
 }
 
-// --------------------
-// STEP 1: ratio vs crime scatter + regression
-// --------------------
+/* ==============================
+   STEP 2 – 비율 vs 범죄
+============================== */
 function drawRatio(data) {
+  gx.style("display", null);
+  gy.style("display", null);
+
   clearPlot();
-  title.text("STEP 2. 범죄국 출국자 비율(%) vs 범죄");
+  svg.selectAll(".step2-legend").remove();
+
+  title.text("범죄국 노출 비율(%)과 범죄율의 상관관계");
+  subtitle.text("");
   xLabel.text("범죄국 출국자 비율(%)");
   yLabel.text("발생 건수");
 
-  // 2018~2025 같이 길이 다를 수 있으니 "공통 길이"만 사용
-  const n = Math.min(data.years.length, data.crime_ratio.length, data.voice_phishing_cases.length, data.cyber_scam_cases.length);
+  const n = Math.min(
+    data.years.length,
+    data.crime_ratio.length,
+    data.voice_phishing_cases.length
+  );
+
   const years = data.years.slice(0, n);
   const ratio = data.crime_ratio.slice(0, n);
-  const cyber = data.cyber_scam_cases.slice(0, n);
-  const voice = data.voice_phishing_cases.slice(0, n);
+  const yData = data.voice_phishing_cases.slice(0, n);
 
-  // ✅ 선택: 여기서는 voice를 표시 (원하면 cyber로 바꿔도 됨)
-  const yData = voice;
-
-  const x = d3.scaleLinear()
-    .domain(d3.extent(ratio))
-    .nice()
-    .range([0, innerW]);
-
-  const y = d3.scaleLinear()
-    .domain([0, d3.max(yData) * 1.05])
-    .nice()
-    .range([innerH, 0]);
+  const x = d3.scaleLinear().domain(d3.extent(ratio)).nice().range([0, innerW]);
+  const y = d3.scaleLinear().domain([0, d3.max(yData) * 1.05]).nice().range([innerH, 0]);
 
   gx.call(d3.axisBottom(x));
   gy.call(d3.axisLeft(y));
 
-  // points
   plot.selectAll("circle")
     .data(years.map((yr, i) => ({ yr, x: ratio[i], y: yData[i] })))
-    .join("circle")
+    .enter()
+    .append("circle")
     .attr("cx", d => x(d.x))
     .attr("cy", d => y(d.y))
     .attr("r", 7)
-    .attr("fill", "#ff884d")
-    .attr("opacity", 0.9);
+    .attr("fill", "#ff884d");
 
-  // year labels
-  plot.selectAll("text.pt")
+  plot.selectAll(".year-label")
     .data(years.map((yr, i) => ({ yr, x: ratio[i], y: yData[i] })))
-    .join("text")
-    .attr("class", "pt")
-    .attr("x", d => x(d.x) + 9)
-    .attr("y", d => y(d.y) + 4)
+    .enter()
+    .append("text")
+    .attr("x", d => x(d.x) + 8)
+    .attr("y", d => y(d.y) - 8)
     .attr("font-size", 11)
-    .attr("fill", "#333")
+    .attr("fill", "#555")
     .text(d => d.yr);
 
-  // regression
   const { slope, intercept } = linreg(ratio, yData);
-  const xLine = [d3.min(ratio), d3.max(ratio)];
-  const yLine = xLine.map(v => slope * v + intercept);
+  const xs = d3.extent(ratio);
 
   plot.append("path")
-    .datum([{ x: xLine[0], y: yLine[0] }, { x: xLine[1], y: yLine[1] }])
+    .datum(xs.map(v => ({ x: v, y: slope * v + intercept })))
     .attr("fill", "none")
     .attr("stroke", "#111")
     .attr("stroke-width", 2)
     .attr("d", d3.line().x(d => x(d.x)).y(d => y(d.y)));
 
   plot.append("text")
-    .attr("x", 10)
-    .attr("y", 12)
+    .attr("x", innerW - 10)
+    .attr("y", 20)
+    .attr("text-anchor", "end")
     .attr("font-size", 12)
-    .attr("fill", "#111")
-    .text(`회귀선: y = ${slope.toFixed(2)}x + ${intercept.toFixed(0)} (보이스피싱 기준)`);
+    .text(`y = ${slope.toFixed(1)}x + ${intercept.toFixed(0)}`);
+
+  const legend = svg.append("g")
+    .attr("class", "step2-legend")
+    .attr("transform", `translate(${width - 220}, ${height - 120})`);
+
+  [
+    { label: "관측값", color: "#ff884d", type: "dot" },
+    { label: "회귀선", color: "#111", type: "line" }
+  ].forEach((d, i) => {
+    const g = legend.append("g").attr("transform", `translate(0, ${i * 22})`);
+
+    if (d.type === "dot") {
+      g.append("circle").attr("cx", 10).attr("cy", 8).attr("r", 5).attr("fill", d.color);
+    } else {
+      g.append("line").attr("x1", 0).attr("x2", 20).attr("y1", 8).attr("y2", 8)
+        .attr("stroke", d.color).attr("stroke-width", 2);
+    }
+
+    g.append("text")
+      .attr("x", 26)
+      .attr("y", 12)
+      .attr("font-size", 12)
+      .attr("fill", "#333")
+      .text(d.label);
+  });
 }
 
-// ================================
-// STEP 3 : 원형 중첩(밀집) 구조 (FIXED)
-// ================================
-async function drawStep3Radial(maxYear, populationBase) {
-  clearPlot();              // ✅ 전체 DOM 삭제 금지
-  title.text("STEP 3. 원형 중첩(밀집) 구조");
+/* ==============================
+   STEP 3 – 원형 중첩 + 👤
+============================== */
+async function drawStep3Radial() {
+  clearPlot();
+  svg.selectAll(".crime-ratio-icons").remove();
+  svg.selectAll(".step2-legend").remove();
+
+  title.text("원형 중첩 그래프");
+  subtitle.text("원형 반경은 피해 인구 수, 👤 크기는 범죄국 출국자 비율");
+
+  gx.style("display", "none");
+  gy.style("display", "none");
   xLabel.text("");
   yLabel.text("");
 
   const res = await fetch("/analysis/step3/");
-  const json = await res.json();
+  const { data, categories } = await res.json();
 
-  const { data, categories } = json;
-  const filtered = data.filter(d => d.year <= maxYear);
-
-  const centerX = innerW / 2;
-  const centerY = innerH / 2;
-
-  const gRadial = plot.append("g")
-    .attr("transform", `translate(${centerX}, ${centerY})`);
-
-  const radiusMax = Math.min(innerW, innerH) * 0.35;
-
-  const angle = d3.scalePoint()
-    .domain(categories)
-    .range([0, Math.PI * 2]);
-
-  const valueMax = d3.max(filtered, d =>
-    d3.max(categories, c => d[c])
+  const grouped = d3.rollups(
+    data.filter(d => d.year <= currentYear),
+    rows => {
+      const obj = { year: rows[0].year };
+      categories.forEach(c => obj[c] = d3.sum(rows, r => r[c]));
+      return obj;
+    },
+    d => d.year
   );
 
-  const radius = d3.scaleLinear()
-    .domain([0, valueMax])
-    .range([0, radiusMax * (populationBase / 20000000)]);
+  const filtered = grouped.map(d => d[1]);
 
-  const yearColor = d3.scaleSequential()
-    .domain([2018, maxYear])
-    .interpolator(d3.interpolateRainbow);
+  const center = plot.append("g")
+    .attr("transform", `translate(${innerW / 2}, ${innerH / 2})`);
 
-  const line = d3.lineRadial()
-    .angle(d => angle(d.category))
+  const maxRadius = Math.min(innerW, innerH) * 0.42;
+
+  const angle = d3.scaleBand().domain(categories).range([0, Math.PI * 2]);
+  const angleCenter = d => angle(d) + angle.bandwidth() / 2;
+
+  const valueMax = d3.max(filtered, d => d3.max(categories, c => d[c]));
+  const radius = d3.scaleLinear().domain([0, valueMax]).range([0, maxRadius * scaleFactor]);
+
+  [0.25, 0.5, 0.75, 1.0].forEach(p => {
+    const v = Math.round(valueMax * p);
+    center.append("circle").attr("r", radius(v)).attr("fill", "none")
+      .attr("stroke", "#ddd").attr("stroke-dasharray", "3,3");
+    center.append("text").attr("x", 4).attr("y", -radius(v)).attr("font-size", 11)
+      .attr("fill", "#777").text(`약 ${d3.format(",")(v)}명`);
+  });
+
+  const radialLine = d3.lineRadial()
+    .angle(d => angleCenter(d.category))
     .radius(d => radius(d.value))
-    .curve(d3.curveCardinalClosed);
+    .curve(d3.curveLinearClosed);
 
-  filtered.forEach(yearData => {
-    const points = categories.map(c => ({
-      category: c,
-      value: yearData[c]
-    }));
+  const color = d3.scaleOrdinal().domain(filtered.map(d => d.year)).range(d3.schemeTableau10);
 
-    gRadial.append("path")
+  filtered.forEach(d => {
+    const points = categories.map(k => ({ category: k, value: d[k] }));
+    center.append("path")
       .datum(points)
-      .attr("d", line)
-      .attr("fill", yearColor(yearData.year))
-      .attr("fill-opacity", 0.1)
-      .attr("stroke", yearColor(yearData.year))
+      .attr("d", radialLine)
+      .attr("fill", color(d.year))
+      .attr("fill-opacity", 0.12)
+      .attr("stroke", color(d.year))
       .attr("stroke-width", 2);
   });
 
-  // 카테고리 라벨
   categories.forEach(c => {
-    const a = angle(c) - Math.PI / 2;
-    const r = radiusMax + 22;
-
-    gRadial.append("text")
+    const a = angleCenter(c) - Math.PI / 2;
+    const r = maxRadius + 26;
+    center.append("text")
       .attr("x", Math.cos(a) * r)
       .attr("y", Math.sin(a) * r)
       .attr("text-anchor", "middle")
       .attr("font-size", 12)
-      .attr("fill", "#333")
       .text(c);
   });
+
+  const iconGroup = svg.append("g")
+    .attr("class", "crime-ratio-icons")
+    .attr("transform", `translate(${width - 120}, ${margin.top + 80})`);
+
+  const ratioData = DATA.years.map((yr, i) => ({
+    year: yr,
+    ratio: DATA.crime_ratio[i]
+  })).filter(d => d.year <= currentYear);
+
+  const iconSize = d3.scaleLinear()
+    .domain(d3.extent(ratioData, d => d.ratio))
+    .range([14, 36]);
+
+  iconGroup.append("text")
+    .attr("y", -16)
+    .attr("font-size", 12)
+    .attr("fill", "#666")
+
+  iconGroup.selectAll(".person")
+    .data(ratioData)
+    .enter()
+    .append("text")
+    .attr("y", (d, i) => i * 38)
+    .attr("font-size", d => iconSize(d.ratio))
+    .text("👤");
+
+  iconGroup.selectAll(".person-year")
+    .data(ratioData)
+    .enter()
+    .append("text")
+    .attr("x", 36)
+    .attr("y", (d, i) => i * 38 + 12)
+    .attr("font-size", 11)
+    .text(d => d.year);
 }
 
-// --------------------
-// Render dispatcher
-// --------------------
+/* ==============================
+   Render + Scroll
+============================== */
 function render(step) {
-  if (!DATA) return;
   currentStep = step;
+  if (!DATA) return;
+
+  if (step !== 0) svg.selectAll(".step1-legend").remove();
+  if (step !== 2) svg.selectAll(".step2-legend").remove();
+  if (step !== 2) svg.selectAll(".crime-ratio-icons").remove();
 
   if (step === 0) drawAbsolute(DATA);
   if (step === 1) drawRatio(DATA);
-  if (step === 2) drawStep3Radial(currentYear, departureInputValue);
+  if (step === 2) drawStep3Radial();
 }
 
-// --------------------
-// Data load + scroller
-// --------------------
 fetch("/analysis/data/")
   .then(res => res.json())
   .then(data => {
     DATA = data;
-
-    // ✅ 첫 화면
     render(0);
 
-    // ✅ 스크롤
     const scroller = scrollama();
-
-    scroller.setup({
-      step: "#sections .step",
-      offset: 0.6
-    })
-    .onStepEnter(resp => {
-      const step = +resp.element.dataset.step;
-      render(step);
-    })
-    .onStepExit(resp => {
-      // ✅ 위로 스크롤 시 이전 단계로 되돌리기
-      if (resp.direction === "up") {
-        const step = +resp.element.dataset.step;
-        render(Math.max(0, step - 1));
-      }
-    });
+    scroller.setup({ step: "#sections .step", offset: 0.6 })
+      .onStepEnter(r => render(+r.element.dataset.step))
+      .onStepExit(r => {
+        if (r.direction === "up")
+          render(Math.max(0, +r.element.dataset.step - 1));
+      });
 
     window.addEventListener("resize", scroller.resize);
-  })
-  .catch(err => {
-    console.error("Data load failed:", err);
-    title.text("데이터 로딩 실패: 콘솔 확인");
   });
-
-
-
-

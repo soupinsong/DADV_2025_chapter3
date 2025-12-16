@@ -30,7 +30,6 @@ urlpatterns = [
 
     path("analysis/", views.analysis_view, name="analysis"),
 
-    path("analysis/step3/", views.get_step3_radial_data, name="step3_radial"),
-
+    path("analysis/step3/", views.step3_radial_data),
 
 ]

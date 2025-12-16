@@ -300,50 +300,47 @@ def analysis_view(request):
 from django.http import JsonResponse
 from .models import CyberScamStat
 
-def get_step3_radial_data(request):
-    """
-    STEP 3 전용
-    범죄 유형을 시계축으로 쓰기 위한 연도별 데이터
-    """
+def step3_radial_data(request):
+    qs = CyberScamStat.objects.order_by("year")
 
-    years = list(range(2018, 2026))
+    voice_df = get_voice_phishing_yearly()
+    voice_dict = dict(
+        zip(voice_df["year"], voice_df["voice_year_total"])
+    )
 
     categories = [
-        "shopping_mall",
+        "shopping",
         "email_trade",
-        "romance",          # 연예빙자
-        "investment",
-        "etc",              # 사이버사기_기타
+        "celebrity",
+        "cyber_invest",
+        "cyber_etc",
         "voice_phishing",
-        "total",            # 전체 합계 (새 축)
+        "total"
     ]
 
-    result = []
+    data = []
 
-    for year in years:
-        qs = CyberScamStat.objects.filter(year=year)
+    for row in qs:
+        year = row.year
 
-        if not qs.exists():
-            continue
-
-        row = qs.first()
-
-        data = {
+        year_data = {
             "year": year,
-            "shopping_mall": row.shopping_mall,
+            "shopping": row.shopping_mall,
             "email_trade": row.email_trade,
-            "romance": row.romance,
-            "investment": row.investment,
-            "etc": row.etc,
-            "voice_phishing": row.voice_phishing,
+            "celebrity": row.romance,
+            "cyber_invest": row.investment,
+            "cyber_etc": row.etc,
+            "voice_phishing": voice_dict.get(year, 0),  # ✅ API에서 합침
         }
 
-        data["total"] = sum(data.values())
+        year_data["total"] = sum(
+            v for k, v in year_data.items() if k != "year"
+        )
 
-        result.append(data)
+        data.append(year_data)
 
     return JsonResponse({
-        "years": years,
         "categories": categories,
-        "data": result
+        "data": data
     })
+

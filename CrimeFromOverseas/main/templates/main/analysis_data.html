@@ -3,9 +3,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>범죄국 출국자 비율(%) 기반 범죄 구조 분석</title>
-
-  <!-- ✅ ESM import 금지: CDN 전역 스크립트로 로드 (안 터짐) -->
+  <title>범죄국 출국자 비율기반 범죄 구조 분석</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/scrollama"></script>
 
@@ -42,14 +40,13 @@
       background:#fff;
       border-radius:14px;
       padding:22px;
-      margin:0 0 420px 0; /* ✅ 스크롤 길이 확보 */
+      margin:0 0 420px 0;
       box-shadow:0 8px 24px rgba(0,0,0,0.06);
       border:1px solid #eee;
     }
     .step h2{ margin:0 0 10px 0; font-size:18px; }
     .step p{ margin:0; line-height:1.7; color:#333; }
 
-    /* right: sticky graphic */
     #graphicWrap{
       width:62%;
       position:sticky;
@@ -93,36 +90,34 @@
 <body>
 
 <header>
-  <h1>범죄국 출국자 비율(%) 기반 범죄 구조 분석</h1>
-  <p>
-    Django API(<code>/analysis/data/</code>)에서 연도별 데이터를 불러와, 스크롤에 따라 분석 관점을 전환한다.<br/>
-    (1) 절대량 변화 → (2) 비율 기반 관계 → (3) 원형 중첩(밀집도) 구조
-  </p>
+  <h1>범죄국 출국자 비율기반 범죄 구조 분석</h1>
 </header>
 
 <section id="scrolly">
   <div id="sections">
     <div class="step" data-step="0">
-      <h2>STEP 1. 절대량(연도별) 변화</h2>
+      <h2>STEP 1. 연도별 절대량 비교</h2>
       <p>
         우선 ‘사이버사기/보이스피싱’의 연도별 절대량 추세를 본다.
-        팬데믹 구간과 회복 구간에서 변화가 어떻게 달라지는지 확인한다.
+        팬데믹 구간과 회복 구간에서 변화가 어떻게 달라지는지 확인할 수 있다.
       </p>
     </div>
 
     <div class="step" data-step="1">
-      <h2>STEP 2. 범죄국 출국자 비율(%) vs 범죄</h2>
+      <h2>STEP 2. 범죄국 노출 비율(%)과 범죄율의 상관관계</h2>
       <p>
-        단순 출국자 수가 아니라 ‘위험국 노출 비율(%)’이 범죄와 어떤 관계를 갖는지 본다.
-        (산점도 + 회귀선)
+        단순 출국자 수가 아니라 위험국 노출 비율이 범죄와 어떤 관계를 갖는지
+        회귀선과 산점도를 통해 살핀다.
       </p>
     </div>
 
     <div class="step" data-step="2">
-      <h2>STEP 3. 원형 중첩(밀집도) 구조</h2>
+      <h2>STEP 3. 원형 중첩 그래프</h2>
       <p>
-        연도별 레이어를 반투명으로 겹쳐 “어떤 축(범죄 유형)이 진해지는지”를 보이게 한다.
-        슬라이더로 출국자 수 스케일을 가정해 시뮬레이션한다.
+        연도별 레이어를 반투명으로 겹쳐 어떤 축이 진해지는지, 
+        진해지는 범위는 어디인지를 보이게 한다.
+        동시에 사이버 범죄 피해 인구 수도 확인할 수 있다.
+        오른쪽에는 년도별 범죄국 노출 비율을 크기 비율로 확인할 수 있다.
       </p>
     </div>
   </div>
@@ -130,19 +125,24 @@
   <div id="graphicWrap">
     <div id="controls">
       <div>
-        <b>가정 출국자 수 스케일:</b>
+        <b>시각화 반경 스케일:</b>
         <span id="scaleLabel">1.00x</span>
       </div>
       <div>
         <input id="scaleSlider" type="range" min="0.5" max="2.0" value="1.0" step="0.05" />
       </div>
-      <div class="hint">스크롤로 3단계 전환 / 위로 올리면 되돌아감</div>
+      <div>
+        <b>최대 연도:</b>
+        <input id="yearSlider" type="range" min="2018" max="2025" value="2025" step="1" />
+        <span id="yearLabel">2025</span>
+      </div>
+
+      <div class="hint">원형 중첩 그래프용 슬라이더</div>
     </div>
     <div id="graphic"></div>
   </div>
 </section>
 
-<!-- ✅ 분리된 JS: 전역 d3/scrollama를 사용하므로 type=module 금지 -->
 <script src="{% static 'main/line.js' %}"></script>
 
 </body>
