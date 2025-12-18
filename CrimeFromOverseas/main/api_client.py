@@ -10,7 +10,7 @@ from .models import (
 
 
 # =========================
-# 1. 사이버 사기 (JSON 깨끗함)
+# 1. 사이버 사기
 # =========================
 def fetch_cyber_scam(page=1, per_page=100):
     """경찰청 사이버사기 범죄 API에서 원본 JSON 가져오기"""
@@ -20,7 +20,7 @@ def fetch_cyber_scam(page=1, per_page=100):
     params = {
         "page": page,
         "perPage": per_page,
-        "serviceKey": settings.API_KEY,  # 공통 키
+        "serviceKey": settings.API_KEY,  
         "returnType": "JSON",
     }
 
@@ -40,7 +40,7 @@ def sync_cyber_scam():
             year = clean_int(row.get("연도"))
             category = row.get("구분", "")
         except Exception:
-            continue  # 연도나 구분 이상하면 스킵
+            continue
 
         CyberScamStat.objects.update_or_create(
             year=year,
